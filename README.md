@@ -8,35 +8,48 @@ All behaviors below emerged from scratch through self-play.
 
 ## Testing Phase — Plain Arena
 
-Before committing to the full architecture, I ran initial experiments in a plain open arena (no rooms, no boxes) to verify that basic chase/flee dynamics and line-of-sight awareness would emerge. Seekers are red, hiders are blue.
+Before committing to the full architecture, I ran initial experiments in a plain open arena (no rooms, no boxes) to verify that basic chase/flee dynamics and line-of-sight awareness would emerge.
+
+> **Blue = Hiders    Red = Seekers**
 
 <table>
 <tr>
-<td align="center">
+<td align="center" width="50%">
+
+**First cornering signs**
+
+<img src="assets/gifs/00_testing_cornering.gif" width="290" />
+
+Hiders (blue) begin figuring out corner geometry — first sign that wall-based evasion is viable.
+
+</td>
+<td align="center" width="50%">
 
 **Corner confusion**
 
-<img src="assets/gifs/01_testing_corner_confusion.gif" width="280" />
+<img src="assets/gifs/01_testing_corner_confusion.gif" width="290" />
 
-Hiders reach a corner but don't know what to do — they haven't learned cornering strategy yet.
+Hiders (blue) consistently get caught at corners — they reach the wall but cannot yet exploit geometry to break line-of-sight.
 
 </td>
-<td align="center">
+</tr>
+<tr>
+<td align="center" width="50%">
 
 **FOV evasion**
 
-<img src="assets/gifs/02_testing_fov_evasion.gif" width="280" />
+<img src="assets/gifs/02_testing_fov_evasion.gif" width="290" />
 
-A hider discovers it can roll *against* a seeker to exit the seeker's 135° field of view.
+Watch the bottom hider (blue) and bottom seeker (red): the hider rolls *against* the seeker — stepping outside its 135-degree FOV without fleeing far.
 
 </td>
-<td align="center">
+<td align="center" width="50%">
 
 **Risk vs reward**
 
-<img src="assets/gifs/03_testing_risk_reward.gif" width="280" />
+<img src="assets/gifs/03_testing_risk_reward.gif" width="290" />
 
-Hider positions at a corner for maximum arena vision — trading exposure for information.
+Hiders (blue) flee and cause seekers (red) to lose them from FOV. Seekers respond by going to corners to reclaim full arena vision — trading mobility for information.
 
 </td>
 </tr>
