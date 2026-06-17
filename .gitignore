@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pth
+*.mp4
+my_videos/
+rl videos/
+downloaded_checkpoints/
+downloaded_videos/
