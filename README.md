@@ -300,13 +300,13 @@ Centralized Global Value Network
 |---|---|---|
 | **Environment** | MuJoCo 2D (top-down) | MuJoCo 3D |
 | **Agents** | 2 hiders + 2 seekers | 1–3 hiders + 1–3 seekers |
-| **Credit assignment** | Difference Rewards (exact counterfactual) | Shared value baseline |
+| **Algorithm** | MAPPO + Difference Rewards (per-agent credit) | PPO + shared team value baseline (no per-agent credit) |
 | **Compute** | Single GPU (A10G), 32 envs | Multi-GPU cluster + 4000 CPUs |
-| **Chase/flee emergence** | ~160K episodes | ~2.69M episodes |
-| **Room hiding + object use** | ~640K–960K episodes | Within 2.69M episodes |
-| **Doorway blocking + lock** | ~864K–960K episodes | Phase 2–3 (millions) |
+| **Chase/flee emergence** | ~160K episodes *(consistent)* | 0–2.69M episodes |
+| **Room hiding + object use** | ~640K–960K episodes *(partly consistent, seen in select episodes)* | 2.69–8.62M episodes |
+| **Doorway blocking + lock** | ~864K–960K episodes *(emerging, observed in select episodes)* | 2.69–8.62M episodes |
 
-> Phases 0–1 are dominated by planar navigation and horizontal line-of-sight. The 2D–3D discount is narrow for these phases, making the episode-count comparison meaningful.
+> Phases 0–1 are dominated by planar navigation and horizontal line-of-sight — OpenAI's agents are also floor-bound in those phases, making the episode-count comparison meaningful. The efficiency gain for later phases is also partly attributable to the simpler 2D action and physics space.
 
 ---
 
