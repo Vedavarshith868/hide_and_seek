@@ -303,8 +303,8 @@ Centralized Global Value Network
 | **Algorithm** | MAPPO + Difference Rewards (per-agent credit) | PPO + shared team value baseline (no per-agent credit) |
 | **Compute** | Single GPU (A10G), 32 envs | Multi-GPU cluster + 4000 CPUs |
 | **Chase/flee emergence** | ~160K episodes *(consistent)* | 0–2.69M episodes |
-| **Room hiding + object use** | ~640K–960K episodes *(partly consistent, seen in select episodes)* | 2.69–8.62M episodes |
-| **Doorway blocking + lock** | ~864K–960K episodes *(emerging, observed in select episodes)* | 2.69–8.62M episodes |
+| **Room hiding + object use** | ~640K–960K episodes *(emerging — seen in ~85–90% of episodes, behavior imperfect)* | 2.69–8.62M episodes |
+| **Doorway blocking + lock** | ~864K–960K episodes *(emerging — seen in ~85–90% of episodes, behavior imperfect)* | 2.69–8.62M episodes |
 
 > Phases 0–1 are dominated by planar navigation and horizontal line-of-sight — OpenAI's agents are also floor-bound in those phases, making the episode-count comparison meaningful. The efficiency gain for later phases is also partly attributable to the simpler 2D action and physics space.
 
