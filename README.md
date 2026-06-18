@@ -179,6 +179,17 @@ Hider drags a box to improve its concealment position inside the room.
 </td>
 <td align="center">
 
+**Box positioning at 20k — view 2**
+
+<img src="assets/gifs/11b_doorway_box_20k_v2.gif" width="280" />
+
+Another episode at the same checkpoint — hider positions the box closer to the doorway, beginning to understand the entrance as the key threat point.
+
+</td>
+</tr>
+<tr>
+<td align="center">
+
 **Two-box coordination at 22k–25k**
 
 <img src="assets/gifs/12_doorway_2boxes_22k.gif" width="280" />
