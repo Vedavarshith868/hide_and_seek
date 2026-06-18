@@ -238,6 +238,31 @@ A_i = normalize(GAE_team) + κ · normalize(discounted-sum D_i)
 
 Code: [`difference_rewards/training/updater.py`](difference_rewards/training/updater.py)
 
+> **Blue = Hiders &nbsp;&nbsp; Red = Seekers**
+
+<table>
+<tr>
+<td align="center">
+
+**DR chase/flee at 4.5k**
+
+<img src="assets/gifs/14_dr_chase_4k.gif" width="280" />
+
+Chase/flee re-emerges by 4.5k under Difference Rewards. Note hiders (blue) continuously rotating — actively scanning with their 135-degree FOV to track seekers rather than fleeing blind.
+
+</td>
+<td align="center">
+
+**DR chasing**
+
+<img src="assets/gifs/15_dr_chase.gif" width="280" />
+
+Seekers (red) maintain tight pursuit under DR. Behavior quality matches MAPPO+GAE at the same checkpoint range — confirming DR's stability.
+
+</td>
+</tr>
+</table>
+
 ---
 
 ## Architecture
