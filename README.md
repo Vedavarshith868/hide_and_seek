@@ -10,7 +10,7 @@ All behaviors below emerged from scratch through self-play.
 
 Before committing to the full architecture, I ran initial experiments in a plain open arena (no rooms, no boxes) to verify that basic chase/flee dynamics and line-of-sight awareness would emerge.
 
-> **Blue = Hiders    Red = Seekers**
+> **🔵= Hiders    🔴= Seekers**
 
 <table>
 <tr>
