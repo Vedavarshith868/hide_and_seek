@@ -179,17 +179,6 @@ Hider drags a box to improve its concealment position inside the room.
 </td>
 <td align="center">
 
-**Box positioning at 20k — view 2**
-
-<img src="assets/gifs/11b_doorway_box_20k_v2.gif" width="280" />
-
-Another episode at the same checkpoint — hider positions the box closer to the doorway, beginning to understand the entrance as the key threat point.
-
-</td>
-</tr>
-<tr>
-<td align="center">
-
 **Two-box coordination at 22k–25k**
 
 <img src="assets/gifs/12_doorway_2boxes_22k.gif" width="280" />
@@ -208,7 +197,16 @@ The most sophisticated behavior: hiders learn that going near the doorway risks 
 
 <table>
 <tr>
-<td align="center" width="50%">
+<td align="center">
+
+**Early doorway blocking**
+
+<img src="assets/gifs/11b_doorway_box_20k_v2.gif" width="280" />
+
+Hider begins placing the box at the doorway entrance — the first signs that agents understand the entrance as the key threat point.
+
+</td>
+<td align="center">
 
 **Doorway blocking + lock at 27k–30k**
 
@@ -217,7 +215,6 @@ The most sophisticated behavior: hiders learn that going near the doorway risks 
 Hider won't leave the room even when near the door. Positions box at the exact doorway width and locks it — the equivalent of barricading the door.
 
 </td>
-<td width="50%"></td>
 </tr>
 </table>
 
