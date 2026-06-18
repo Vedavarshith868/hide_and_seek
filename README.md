@@ -63,6 +63,8 @@ Basic dynamics confirmed. Switched to the full environment with rooms, boxes, an
 
 **Multi-Agent PPO** with Generalized Advantage Estimation — one shared actor (Transformer + LSTM) for all agents, a centralized global value network for advantage computation, and a zero-sum reward: +1/EPISODE_LEN per step for the team that's winning.
 
+> **🔵= Hiders    🔴= Seekers**
+
 ### Phase 0 — Chase / Flee (Checkpoints 4k–6k)
 
 Seeking and fleeing emerge by **checkpoint 4k**. By 5k–6k, agents develop genuine cornering strategy: seekers use tight angles to cut off escape routes, hiders use corners to break line-of-sight.
@@ -246,7 +248,7 @@ A_i = normalize(GAE_team) + κ · normalize(discounted-sum D_i)
 
 Code: [`difference_rewards/training/updater.py`](difference_rewards/training/updater.py)
 
-> **Blue = Hiders &nbsp;&nbsp; Red = Seekers**
+> **🔵= Hiders    🔴= Seekers**
 
 <table>
 <tr>
