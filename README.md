@@ -1,6 +1,6 @@
 # Emergent Multi-Agent Hide-and-Seek | Competitive RL
 
-Reproducing OpenAI's [emergent hide-and-seek behaviors](https://openai.com/index/emergent-tool-use/) (Baker et al., ICLR 2020) in a 2D MuJoCo environment, training on a **single A10G GPU** with pure zero-sum competition — no shaped rewards, no demonstrations.
+Reproducing OpenAI's [emergent hide-and-seek behaviors](https://openai.com/index/emergent-tool-use/) (Baker et al., ICLR 2020) in a 2D MuJoCo environment, training on a **single A10G GPU** with zero-sum competition and no shaped rewards.
 
 All behaviors below emerged from scratch through self-play.
 
@@ -8,7 +8,7 @@ All behaviors below emerged from scratch through self-play.
 
 ## Testing Phase — Plain Arena
 
-Before committing to the full architecture, I ran initial experiments in a plain open arena (no rooms, no boxes) to verify that basic chase/flee dynamics and line-of-sight awareness would emerge.
+Before committing to the full architecture, We ran initial experiments in a plain open arena (no rooms and boxes) to verify that basic chase/flee dynamics and line-of-sight awareness would emerge.
 
 > **Blue = Hiders    Red = Seekers**
 
@@ -40,7 +40,7 @@ Hiders (blue) consistently get caught at corners — they reach the wall but can
 
 <img src="assets/gifs/02_testing_fov_evasion.gif" width="290" />
 
-Watch the bottom hider (blue) and bottom seeker (red): the hider rolls *against* the seeker — stepping outside its 135-degree FOV without fleeing far.
+Watch the bottom hider (blue) and bottom seeker (red): the hider rolls *against* the seeker, stepping outside its 135-degree FOV without fleeing far.
 
 </td>
 <td align="center" width="50%">
@@ -49,13 +49,13 @@ Watch the bottom hider (blue) and bottom seeker (red): the hider rolls *against*
 
 <img src="assets/gifs/03_testing_risk_reward.gif" width="290" />
 
-Hiders (blue) flee and cause seekers (red) to lose them from FOV. Seekers respond by going to corners to reclaim full arena vision — trading mobility for information.
+Hiders (blue) flee and cause seekers (red) to lose them from FOV. Seekers respond by going to corners to reclaim full arena vision.
 
 </td>
 </tr>
 </table>
 
-Basic dynamics confirmed. Switched to the full environment with rooms, boxes, and the MAPPO + GAE training setup.
+Part 1 of the training flow has confirmed that the architecture works. Switched to the full environment with rooms, boxes, and the MAPPO + GAE training setup.
 
 ---
 
@@ -105,7 +105,7 @@ Early seeker coordination — two seekers begin splitting to cut off escape path
 
 ### Phase 0 → 1 — Early Box Interaction (Checkpoints 8k–10k)
 
-Ran until ~8k–9k to check if hiders would discover room hiding. Room entry was inconsistent but appeared in several episodes. Notably, hiders began picking up boxes and dragging them to walls — repurposing their previous corner-hiding strategy with objects.
+Ran until ~8k–9k to check if hiders would discover room hiding. Room entry was inconsistent but appeared in several episodes. Notably, hiders began picking up boxes and dragging them to walls, repurposing their previous corner-hiding strategy with objects.
 
 <table>
 <tr>
@@ -126,7 +126,7 @@ Hiders try to hide *behind* boxes by dragging them to walls, extending the corne
 
 ### Phase 1 — Seekers Enter Rooms (Checkpoints 12k–15k, Quadrant Spawn)
 
-Switched to **quadrant spawn mode** — hiders and boxes spawn inside the first room, seekers outside — to give the environment a natural pressure gradient for room-based strategies. By 12k–15k, seekers learn to enter rooms to find hiders.
+Switched to **quadrant spawn mode** — hiders and boxes spawn inside the first room, seekers outside, to give the environment a natural pressure gradient for room-based strategies. By 12k–15k, seekers learn to enter rooms to find hiders.
 
 <table>
 <tr>
@@ -203,7 +203,7 @@ The most sophisticated behavior: hiders learn that going near the doorway risks 
 
 <img src="assets/gifs/13_doorway_lock_28k.gif" width="280" />
 
-Hider won't leave the room even when near the door. Positions box at the exact doorway width and locks it — the equivalent of barricading the door.
+Hider won't leave the room even when near the door. Positions box at the exact doorway width and locks it.
 
 </td>
 <td width="50%"></td>
@@ -212,29 +212,29 @@ Hider won't leave the room even when near the door. Positions box at the exact d
 
 ---
 
-## COMA — Mid-Run Failure
+## Implementing COMA
 
-After observing these results, I switched to **COMA** (Counterfactual Multi-Agent) credit assignment mid-run to test whether per-agent counterfactual gradients would accelerate Phase 2 convergence. COMA collapsed both policies within ~40 iterations: the centralized Q-critic's counterfactual differences are dominated by noise at this reward horizon (SNR measured at 0.15, well below 1). Per-minibatch normalization amplifies this noise to unit-scale gradients, and entropy dropped to 0.05 — a degenerate fixed-action policy.
+After observing these results, We switched to **COMA** (Counterfactual Multi-Agent) credit assignment mid-run to test whether per-agent counterfactual gradients would accelerate Phase 2 convergence. COMA collapsed both policies within ~40 iterations: the centralized Q-critic's counterfactual differences are dominated by noise at this reward horizon (SNR measured at 0.15, well below 1). Per-minibatch normalization amplifies this noise to unit-scale gradients, and entropy dropped to 0.05 — a degenerate fixed-action policy, which basically halts emergence.
 
 ---
 
-## Difference Rewards — Custom Credit Assignment
+## Difference Rewards
 
-Instead of learning the counterfactual from a noisy Q-critic, I computed it **exactly** from the line-of-sight structure of the reward:
+Instead of learning the counterfactual from a noisy Q-critic, We computed it **exactly** from the line-of-sight structure of the reward:
 
 ```
 D_i = G − G_{-i}
 ```
 
-Each agent's reward is the global team reward minus the reward the team would have received without agent *i*. This requires no learned approximation — the LOS raycasting already determines who is visible to whom, so removing agent *i* gives the exact counterfactual.
+Each agent's reward is the global team reward minus the reward the team would have received without agent *i*. This requires no learned approximation as the raycasting holds the information of which agent is looking at whom.
 
-The advantage combines team-level signal with per-agent marginal credit:
+The advantage combines team-level signal with per-agent marginal reward:
 
 ```
 A_i = normalize(GAE_team) + κ · normalize(discounted-sum D_i)
 ```
 
-**Result**: chase/flee emerged again by checkpoint **5k–6k**, matching MAPPO+GAE — validating that the pipeline is stable under DR and that COMA's failure was an approximation noise problem, not a fundamental credit-assignment problem.
+**Result**: chase/flee emerged again by checkpoint **5k–6k**, matching MAPPO+GAE, validating that the pipeline is stable under DR and that COMA's failure was an approximation noise problem, not a fundamental credit-assignment problem.
 
 Code: [`difference_rewards/training/updater.py`](difference_rewards/training/updater.py)
 
@@ -248,7 +248,7 @@ Code: [`difference_rewards/training/updater.py`](difference_rewards/training/upd
 
 <img src="assets/gifs/14_dr_chase_4k.gif" width="280" />
 
-Chase/flee re-emerges by 4.5k under Difference Rewards. Note hiders (blue) continuously rotating — actively scanning with their 135-degree FOV to track seekers rather than fleeing blind.
+Chase/flee re-emerges by 4.5k under Difference Rewards. Note hiders (blue) continuously rotating, actively scanning with their 135-degree FOV to track seekers rather than fleeing blind.
 
 </td>
 <td align="center">
@@ -257,7 +257,7 @@ Chase/flee re-emerges by 4.5k under Difference Rewards. Note hiders (blue) conti
 
 <img src="assets/gifs/15_dr_chase.gif" width="280" />
 
-Seekers (red) maintain tight pursuit under DR. Behavior quality matches MAPPO+GAE at the same checkpoint range — confirming DR's stability.
+Seekers (red) maintain tight pursuit under DR. Behavior quality matches MAPPO+GAE at the same checkpoint range.
 
 </td>
 </tr>
@@ -296,15 +296,15 @@ Centralized Global Value Network
 
 ## Comparison with OpenAI
 
-| | This project | OpenAI (Baker et al.) |
+| | These benchmarks | OpenAI (Baker et al.) |
 |---|---|---|
 | **Environment** | MuJoCo 2D (top-down) | MuJoCo 3D |
 | **Agents** | 2 hiders + 2 seekers | 1–3 hiders + 1–3 seekers |
 | **Algorithm** | MAPPO + Difference Rewards (per-agent credit) | PPO + shared team value baseline (no per-agent credit) |
 | **Compute** | Single GPU (A10G), 32 envs | Multi-GPU cluster + 4000 CPUs |
 | **Chase/flee emergence** | ~160K episodes *(consistent)* | 0–2.69M episodes |
-| **Room hiding + object use** | ~640K–960K episodes *(emerging — seen in ~85–90% of episodes, not yet fully refined)* | 2.69–8.62M episodes |
-| **Doorway blocking + lock** | ~864K–960K episodes *(emerging — seen in ~85–90% of episodes, not yet fully refined)* | 2.69–8.62M episodes |
+| **Room hiding + object use** | ~640K–960K episodes *(emerging — seen in ~80% of episodes, not yet fully refined)* | 2.69–8.62M episodes |
+| **Doorway blocking + lock** | ~864K–960K episodes *(emerging — seen in ~80% of episodes, not yet fully refined)* | 2.69–8.62M episodes |
 
 > Phases 0–1 are dominated by planar navigation and horizontal line-of-sight — OpenAI's agents are also floor-bound in those phases, making the episode-count comparison meaningful. The efficiency gain for later phases is also partly attributable to the simpler 2D action and physics space.
 
@@ -319,7 +319,7 @@ Centralized Global Value Network
 │   ├── rooms.py                  # Procedural BSP room generation
 │   └── vec_env.py                # Vectorized parallel environments
 │
-├── models/                       # Neural network architecture (shared)
+├── models/                       # Shared NN 
 │   ├── sensory.py                # Transformer encoder + LiDAR embedder
 │   ├── actor.py                  # MAPPO policy: LSTM + 4 action heads
 │   ├── critics.py                # COMA critic + global value networks
