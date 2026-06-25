@@ -276,82 +276,215 @@
   <div class="wrap">
     <div class="eyebrow">Model</div>
     <h2>Entity-centric policy architecture</h2>
-    <p class="lead">Each agent sees an unordered list of entities (teammates, opponents, boxes, walls) plus a 72-ray LiDAR sweep. A shared Transformer attends over entities; an LSTM carries memory; four independent heads emit a factored action.</p>
+    <p class="lead">Each agent sees the world as a list of entities — itself, other agents, boxes — plus a 72-ray LiDAR sweep, with no fixed ordering. Every entity is embedded, then a vision mask hides anything outside the 135° cone or behind a wall, so attention only mixes what the agent can actually see. An LSTM adds memory; four independent heads emit a factored action.</p>
 
     <div class="svgwrap" style="margin-top:32px;">
-      <svg class="diagram" viewBox="0 0 920 540" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
+      <svg class="diagram" viewBox="0 0 1180 750" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Entity-centric policy architecture">
         <defs>
-          <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-            <path d="M0,0 L9,4.5 L0,9 Z" fill="#8a909b"/>
-          </marker>
+          <linearGradient id="gSelf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5db2f8"/><stop offset="1" stop-color="#2f7fd6"/></linearGradient>
+          <linearGradient id="gAg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbbf52"/><stop offset="1" stop-color="#ef9a23"/></linearGradient>
+          <linearGradient id="gBx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2873a"/><stop offset="1" stop-color="#e0641a"/></linearGradient>
+          <linearGradient id="gYel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7c948"/><stop offset="1" stop-color="#e8a317"/></linearGradient>
+          <marker id="ah" markerWidth="10" markerHeight="10" refX="7.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#9aa0ab"/></marker>
           <style>
-            .box { fill:#fff; stroke:#d7dae0; stroke-width:1.5; rx:10; }
-            .lbl { font-size:13px; fill:#15171a; }
-            .sub { font-size:11px; fill:#8a909b; }
-            .flow { stroke:#8a909b; stroke-width:1.6; fill:none; marker-end:url(#arr); }
-            .acc { fill:#eef4ff; stroke:#2d7ff9; }
-            .acc2 { fill:#fff4f4; stroke:#ef4444; }
+            .t   { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+            .cap { font-size:13px; fill:#15171a; }
+            .sm  { font-size:11.5px; fill:#6b7280; }
+            .ttl { font-size:13.5px; fill:#15171a; font-weight:600; }
+            .wire  { stroke:#c2c7d0; stroke-width:2; fill:none; }
+            .warr  { stroke:#c2c7d0; stroke-width:2; fill:none; marker-end:url(#ah); }
+            .ring  { fill:#fff; stroke-width:3; }
+            .ctok  { stroke:#ffffff; stroke-width:1.5; rx:5; }
           </style>
         </defs>
+        <g class="t">
 
-        <!-- Observation -->
-        <rect class="box" x="300" y="20" width="320" height="58" rx="10"/>
-        <text class="lbl" x="460" y="44" text-anchor="middle" font-weight="600">Observation</text>
-        <text class="sub" x="460" y="62" text-anchor="middle">12 entities × 18-dim + 72-ray LiDAR + 2 time scalars</text>
+        <!-- ===================== INPUTS ===================== -->
+        <!-- self -->
+        <circle class="ring" cx="72" cy="100" r="42" stroke="#2f7fd6"/>
+        <circle cx="72" cy="93" r="15" fill="url(#gSelf)"/>
+        <rect x="57" y="100" width="30" height="27" rx="13" fill="url(#gSelf)"/>
+        <circle cx="66" cy="91" r="2.6" fill="#fff"/><circle cx="78" cy="91" r="2.6" fill="#fff"/>
+        <text class="sm" x="72" y="162" text-anchor="middle">x, v</text>
+        <text class="sm" x="72" y="178" text-anchor="middle">of self</text>
 
-        <line class="flow" x1="460" y1="78" x2="460" y2="106"/>
+        <!-- lidar -->
+        <circle class="ring" cx="72" cy="258" r="42" stroke="#2f7fd6"/>
+        <g stroke="#2f7fd6" stroke-width="1.4" opacity="0.85">
+          <line x1="72" y1="258" x2="106" y2="258"/><line x1="72" y1="258" x2="101" y2="241"/>
+          <line x1="72" y1="258" x2="89" y2="229"/><line x1="72" y1="258" x2="72" y2="224"/>
+          <line x1="72" y1="258" x2="55" y2="229"/><line x1="72" y1="258" x2="43" y2="241"/>
+          <line x1="72" y1="258" x2="38" y2="258"/><line x1="72" y1="258" x2="43" y2="275"/>
+          <line x1="72" y1="258" x2="55" y2="287"/><line x1="72" y1="258" x2="72" y2="292"/>
+          <line x1="72" y1="258" x2="89" y2="287"/><line x1="72" y1="258" x2="101" y2="275"/>
+        </g>
+        <circle cx="72" cy="258" r="4.5" fill="#2f7fd6"/>
+        <text class="sm" x="72" y="320" text-anchor="middle">LiDAR (72-ray)</text>
 
-        <!-- Entity embedding -->
-        <rect class="box" x="300" y="108" width="320" height="50" rx="10"/>
-        <text class="lbl" x="460" y="130" text-anchor="middle">Entity Embedding MLP</text>
-        <text class="sub" x="460" y="147" text-anchor="middle">shared weights, applied per entity</text>
+        <!-- other agents -->
+        <circle class="ring" cx="72" cy="430" r="42" stroke="#ef9a23"/>
+        <circle cx="60" cy="426" r="12" fill="#ef4444"/>
+        <circle cx="86" cy="420" r="12" fill="url(#gSelf)"/>
+        <circle cx="74" cy="444" r="12" fill="#ef4444"/>
+        <circle cx="83" cy="418" r="2.3" fill="#fff"/><circle cx="91" cy="418" r="2.3" fill="#fff"/>
+        <text class="sm" x="72" y="492" text-anchor="middle">x, v</text>
+        <text class="sm" x="72" y="508" text-anchor="middle">of other agents</text>
 
-        <line class="flow" x1="460" y1="158" x2="460" y2="186"/>
+        <!-- boxes -->
+        <circle class="ring" cx="72" cy="600" r="42" stroke="#e0641a"/>
+        <rect x="46" y="582" width="28" height="22" rx="4" fill="url(#gYel)" transform="rotate(-18 60 593)"/>
+        <rect x="72" y="592" width="23" height="32" rx="4" fill="url(#gYel)" transform="rotate(14 83 608)"/>
+        <text class="sm" x="72" y="662" text-anchor="middle">x, v, size</text>
+        <text class="sm" x="72" y="678" text-anchor="middle">of boxes</text>
 
-        <!-- Attention -->
-        <rect class="box acc" x="300" y="188" width="320" height="50" rx="10"/>
-        <text class="lbl" x="460" y="210" text-anchor="middle">Masked Residual Self-Attention</text>
-        <text class="sub" x="460" y="227" text-anchor="middle">2 layers · 4 heads · 128-dim</text>
+        <!-- ===================== WIRES TO EMBEDDINGS ===================== -->
+        <path class="wire" d="M114,100 C 250,100 320,180 418,206"/>
+        <path class="wire" d="M114,258 C 230,258 320,235 418,220"/>
+        <path class="wire" d="M114,430 C 250,430 330,380 418,378"/>
+        <path class="wire" d="M114,600 C 250,600 340,545 418,540"/>
+        <text class="sm" x="232" y="246" text-anchor="middle">Circular 1D convolution</text>
+        <text class="sm" x="300" y="455" text-anchor="middle">Fully connected</text>
+        <text class="sm" x="320" y="92" text-anchor="middle">Fully connected</text>
 
-        <line class="flow" x1="460" y1="238" x2="460" y2="266"/>
+        <!-- ===================== ENTITY EMBEDDINGS ===================== -->
+        <rect x="392" y="158" width="150" height="462" rx="14" fill="#f4f5f7"/>
+        <text class="ttl" x="467" y="146" text-anchor="middle">Entity Embeddings</text>
 
-        <!-- pool -->
-        <rect class="box" x="335" y="268" width="250" height="42" rx="10"/>
-        <text class="lbl" x="460" y="294" text-anchor="middle">Mean-pool → 128-dim context</text>
+        <!-- cube: self "1" -->
+        <polygon points="420,190 431,179 509,179 498,190" fill="#7cc0fa"/>
+        <polygon points="498,190 509,179 509,223 498,234" fill="#1f63b8"/>
+        <rect x="420" y="190" width="78" height="44" rx="4" fill="url(#gSelf)"/>
+        <text x="459" y="218" text-anchor="middle" font-size="15" fill="#fff" font-weight="700">1</text>
+        <!-- cube: agents -->
+        <polygon points="420,358 431,347 509,347 498,358" fill="#fdd07e"/>
+        <polygon points="498,358 509,347 509,391 498,402" fill="#cf8214"/>
+        <rect x="420" y="358" width="78" height="44" rx="4" fill="url(#gAg)"/>
+        <text x="459" y="385" text-anchor="middle" font-size="12.5" fill="#fff" font-weight="600"># agents−1</text>
+        <!-- cube: boxes -->
+        <polygon points="420,520 431,509 509,509 498,520" fill="#f7a064"/>
+        <polygon points="498,520 509,509 509,553 498,564" fill="#bf520f"/>
+        <rect x="420" y="520" width="78" height="44" rx="4" fill="url(#gBx)"/>
+        <text x="459" y="547" text-anchor="middle" font-size="13" fill="#fff" font-weight="600"># boxes</text>
 
-        <!-- split lines -->
-        <line class="flow" x1="460" y1="310" x2="220" y2="356"/>
-        <line class="flow" x1="460" y1="310" x2="460" y2="356"/>
-        <line class="flow" x1="460" y1="310" x2="720" y2="356"/>
+        <!-- converge to attention -->
+        <path class="wire" d="M509,212 C 565,212 580,425 602,432"/>
+        <path class="wire" d="M509,380 C 565,380 585,425 602,432"/>
+        <path class="wire" d="M509,542 C 565,542 585,440 602,432"/>
+        <path class="warr" d="M602,432 H 650"/>
 
-        <!-- LSTM -->
-        <rect class="box" x="370" y="358" width="180" height="46" rx="10"/>
-        <text class="lbl" x="460" y="386" text-anchor="middle">LSTM · 256 hidden</text>
+        <!-- ===================== MASK PANEL ===================== -->
+        <rect x="650" y="24" width="508" height="300" rx="16" fill="#f4f5f7"/>
+        <text class="ttl" x="672" y="52" text-anchor="start">Generate masks from the 135°</text>
+        <text class="ttl" x="672" y="71" text-anchor="start">vision cone + line of sight</text>
 
-        <!-- RND -->
-        <rect class="box acc2" x="630" y="358" width="200" height="46" rx="10"/>
-        <text class="lbl" x="730" y="380" text-anchor="middle">Dual-channel RND</text>
-        <text class="sub" x="730" y="396" text-anchor="middle">spatial + interaction</text>
+        <!-- vision cone -->
+        <polygon points="742,118 1144,82 1126,252" fill="#7fdd86" opacity="0.38"/>
+        <polygon points="742,118 1052,150 1132,250" fill="#f3a3bd" opacity="0.5"/>
+        <!-- apex hider -->
+        <circle cx="742" cy="110" r="11" fill="url(#gSelf)"/><rect x="731" y="116" width="22" height="18" rx="9" fill="url(#gSelf)"/>
+        <!-- occluder box -->
+        <rect x="980" y="120" width="46" height="40" rx="5" fill="url(#gYel)" transform="rotate(12 1003 140)"/>
+        <!-- visible blue agent + check -->
+        <circle cx="884" cy="158" r="12" fill="url(#gSelf)"/>
+        <path d="M902,150 l5,6 l10,-13" stroke="#1f9d4d" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- occluded red agent + cross -->
+        <circle cx="1058" cy="208" r="12" fill="#ef4444" opacity="0.85"/>
+        <path d="M1078,198 l12,12 M1090,198 l-12,12" stroke="#d11414" stroke-width="3" stroke-linecap="round"/>
+        <!-- outside red agent + cross -->
+        <circle cx="772" cy="262" r="12" fill="#ef4444" opacity="0.85"/>
+        <path d="M792,252 l12,12 M804,252 l-12,12" stroke="#d11414" stroke-width="3" stroke-linecap="round"/>
 
-        <!-- Critic -->
-        <rect class="box" x="90" y="358" width="200" height="46" rx="10"/>
-        <text class="lbl" x="190" y="380" text-anchor="middle">Centralized Critic</text>
-        <text class="sub" x="190" y="396" text-anchor="middle">global state → H / S / int values</text>
+        <!-- masked token strip -->
+        <g>
+          <rect class="ctok" x="690" y="286" width="26" height="26" fill="url(#gSelf)"/>
+          <rect class="ctok" x="730" y="286" width="26" height="26" fill="url(#gAg)"/>
+          <rect class="ctok" x="770" y="286" width="26" height="26" fill="url(#gAg)"/>
+          <rect class="ctok" x="810" y="286" width="26" height="26" fill="#1a1f29"/>
+          <rect class="ctok" x="850" y="286" width="26" height="26" fill="url(#gBx)"/>
+          <rect class="ctok" x="890" y="286" width="26" height="26" fill="#1a1f29"/>
+          <rect class="ctok" x="930" y="286" width="26" height="26" fill="url(#gBx)"/>
+          <rect class="ctok" x="970" y="286" width="26" height="26" fill="url(#gSelf)"/>
+          <rect class="ctok" x="1010" y="286" width="26" height="26" fill="url(#gAg)"/>
+        </g>
 
-        <line class="flow" x1="460" y1="404" x2="460" y2="432"/>
+        <!-- arrows from masked tokens into attention -->
+        <path class="warr" d="M823,312 V 392"/>
+        <path class="warr" d="M903,312 V 392"/>
 
-        <!-- Heads -->
-        <rect class="box" x="250" y="434" width="420" height="86" rx="10"/>
-        <text class="lbl" x="460" y="456" text-anchor="middle" font-weight="600">Four independent actor heads</text>
-        <text class="sub" x="312" y="480" text-anchor="middle">Move · 9</text>
-        <text class="sub" x="404" y="480" text-anchor="middle">Rotate · 3</text>
-        <text class="sub" x="500" y="480" text-anchor="middle">Grab · 2</text>
-        <text class="sub" x="592" y="480" text-anchor="middle">Lock · 2</text>
-        <text class="lbl" x="460" y="506" text-anchor="middle">= 108 factored joint actions</text>
+        <!-- ===================== ATTENTION ===================== -->
+        <text class="ttl" x="650" y="372" text-anchor="start">Masked Residual Self-Attention across entities</text>
+
+        <!-- row 1 -->
+        <g>
+          <rect class="ctok" x="650" y="396" width="34" height="34" fill="url(#gSelf)"/>
+          <rect class="ctok" x="694" y="396" width="34" height="34" fill="url(#gAg)"/>
+          <rect class="ctok" x="738" y="396" width="34" height="34" fill="url(#gAg)"/>
+          <rect class="ctok" x="782" y="396" width="34" height="34" fill="#1a1f29"/>
+          <rect class="ctok" x="826" y="396" width="34" height="34" fill="url(#gBx)"/>
+          <rect class="ctok" x="870" y="396" width="34" height="34" fill="#1a1f29"/>
+          <rect class="ctok" x="914" y="396" width="34" height="34" fill="url(#gBx)"/>
+          <rect class="ctok" x="958" y="396" width="34" height="34" fill="url(#gSelf)"/>
+          <rect class="ctok" x="1002" y="396" width="34" height="34" fill="url(#gAg)"/>
+        </g>
+        <!-- attention mixing arcs -->
+        <g stroke="#b9bec8" stroke-width="1.4" fill="none" opacity="0.8">
+          <path d="M667,396 C 700,372 820,372 843,396"/>
+          <path d="M931,396 C 900,372 790,372 755,396"/>
+          <path d="M1019,396 C 980,366 720,366 667,396"/>
+        </g>
+        <!-- residual links row1->row2 -->
+        <g stroke="#c2c7d0" stroke-width="1.5" fill="none">
+          <path d="M667,430 V 466"/><path d="M711,430 V 466"/><path d="M755,430 V 466"/>
+          <path d="M799,430 V 466"/><path d="M843,430 V 466"/><path d="M887,430 V 466"/>
+          <path d="M931,430 V 466"/><path d="M975,430 V 466"/><path d="M1019,430 V 466"/>
+        </g>
+        <!-- row 2 -->
+        <g>
+          <rect class="ctok" x="650" y="466" width="34" height="34" fill="url(#gSelf)"/>
+          <rect class="ctok" x="694" y="466" width="34" height="34" fill="url(#gAg)"/>
+          <rect class="ctok" x="738" y="466" width="34" height="34" fill="url(#gAg)"/>
+          <rect class="ctok" x="782" y="466" width="34" height="34" fill="#1a1f29"/>
+          <rect class="ctok" x="826" y="466" width="34" height="34" fill="url(#gBx)"/>
+          <rect class="ctok" x="870" y="466" width="34" height="34" fill="#1a1f29"/>
+          <rect class="ctok" x="914" y="466" width="34" height="34" fill="url(#gBx)"/>
+          <rect class="ctok" x="958" y="466" width="34" height="34" fill="url(#gSelf)"/>
+          <rect class="ctok" x="1002" y="466" width="34" height="34" fill="url(#gAg)"/>
+        </g>
+        <text class="sm" x="650" y="520" text-anchor="start">2 layers · 4 heads · 128-dim</text>
+
+        <!-- ===================== POOL -> LSTM -> HEADS ===================== -->
+        <text class="sm" x="838" y="552" text-anchor="middle">Masked</text>
+        <text class="sm" x="838" y="567" text-anchor="middle">Average Pooling</text>
+        <path class="warr" d="M850,500 C 870,535 884,556 894,562"/>
+        <!-- pool cube -->
+        <polygon points="900,548 909,539 949,539 940,548" fill="#7cc0fa"/>
+        <polygon points="940,548 949,539 949,573 940,582" fill="#1f63b8"/>
+        <rect x="900" y="548" width="40" height="34" rx="4" fill="url(#gSelf)"/>
+        <path class="warr" d="M949,565 H 1006"/>
+        <!-- lstm cube -->
+        <polygon points="1012,548 1021,539 1061,539 1052,548" fill="#7cc0fa"/>
+        <polygon points="1052,548 1061,539 1061,573 1052,582" fill="#1f63b8"/>
+        <rect x="1012" y="548" width="40" height="34" rx="4" fill="url(#gSelf)"/>
+        <text class="sm" x="1032" y="603" text-anchor="middle">LSTM · 256</text>
+        <!-- recurrence loop -->
+        <path d="M1056,544 C 1078,520 1030,512 1024,540" stroke="#9aa0ab" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- heads -->
+        <path class="warr" d="M1018,584 C 960,632 800,648 742,690"/>
+        <path class="warr" d="M1026,584 C 1000,634 916,648 902,690"/>
+        <path class="warr" d="M1034,584 C 1040,632 1042,648 1042,690"/>
+        <path class="warr" d="M1044,584 C 1090,630 1150,648 1156,690"/>
+        <text class="cap" x="742" y="708" text-anchor="middle">Movement</text><text class="sm" x="742" y="724" text-anchor="middle">9 actions</text>
+        <text class="cap" x="902" y="708" text-anchor="middle">Rotate</text><text class="sm" x="902" y="724" text-anchor="middle">3 actions</text>
+        <text class="cap" x="1042" y="708" text-anchor="middle">Grabbing</text><text class="sm" x="1042" y="724" text-anchor="middle">2 actions</text>
+        <text class="cap" x="1156" y="708" text-anchor="middle">Locking</text><text class="sm" x="1156" y="724" text-anchor="middle">2 actions</text>
+
+        </g>
       </svg>
     </div>
 
-    <p style="margin-top:28px;"><b style="color:var(--ink)">Environment.</b> MuJoCo 2D · 10 m × 10 m arena · procedural BSP rooms · 72-ray full-circle LiDAR · 135° FOV occlusion · grab &amp; lock mechanics (4–6 boxes/episode, ≥2 elongated) · 40% preparation phase (seekers frozen) + 60% competition.</p>
+    <p style="margin-top:28px;"><b style="color:var(--ink)">Shown above is the policy.</b> During training it's paired with a <b>centralized critic</b> (sees the full global state, outputs separate hider / seeker / intrinsic values) and a <b>dual-channel RND</b> module (spatial + interaction novelty, gated to the losing team) for exploration.</p>
+    <p><b style="color:var(--ink)">Environment.</b> MuJoCo 2D · 10 m × 10 m arena · procedural BSP rooms · 72-ray full-circle LiDAR · 135° FOV occlusion · grab &amp; lock mechanics (4–6 boxes/episode, ≥2 elongated) · 40% preparation phase (seekers frozen) + 60% competition.</p>
   </div>
 </section>
 
@@ -362,9 +495,9 @@
     <h2>MAPPO + GAE — and how it differs from OpenAI</h2>
     <div class="explainer" style="margin-top:32px;">
       <div>
-        <p>Both this project and OpenAI use <b>centralized training with decentralized execution</b> — an omniscient critic during training, independent policies at run time. The difference is in <b>how credit is split among teammates.</b></p>
-        <p>OpenAI's PPO uses a single <b>shared team value baseline</b>: every agent on a team receives the <b>identical</b> advantage. There is no per-agent attribution — a teammate that did nothing gets the same signal as the one that made the play.</p>
-        <p>MAPPO + GAE keeps a centralized global critic but computes per-team GAE, giving a cleaner, lower-variance team signal that was strong enough to produce consistent chase/flee by ~160K episodes.</p>
+        <p>Both this project and OpenAI use <b>centralized training with decentralized execution</b> — an all-seeing critic during training, independent policies at run time. What differs is <b>how the team's single reward gets divided among teammates.</b></p>
+        <p>OpenAI's PPO hands the whole team one shared score. When the team wins, every agent is told <i>"good job"</i> by the same amount — even one that stood still while its teammate made the play. The signal never tells an individual agent whether <b>its own</b> actions actually mattered.</p>
+        <p>MAPPO + GAE keeps that shared critic but uses GAE to turn the raw reward into a smoother estimate of <b>how much better than expected</b> each moment was. That cleaner team signal was enough to grow consistent chase/flee by ~160K episodes — but it still can't isolate a single agent's contribution, which is exactly what pushed me toward per-agent credit.</p>
       </div>
       <div class="svgwrap">
         <svg class="diagram" viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
@@ -422,6 +555,7 @@
         <p>Each agent's signal is the team reward minus what the team would have earned without it. The final advantage blends the team-level GAE with this per-agent marginal credit:</p>
         <div class="formula">A<sub>i</sub> = norm(GAE<sub>team</sub>) + κ · norm(Σ γ D<sub>i</sub>)</div>
         <p><b>Result:</b> chase/flee re-emerged by checkpoint 5k–6k — matching MAPPO+GAE and confirming COMA's failure was an approximation-noise problem, not a fundamental one.</p>
+        <div class="callout"><b>Sensor change.</b> The LiDAR didn't start at 72 rays. Once quadrant spawn put the hiders inside a room, a coarse scan couldn't resolve the doorway and seekers struggled to find the room at all in the early phases. Raising the full-circle LiDAR to <b>72 rays</b> gave enough spatial resolution for reliable room-finding — and that's the configuration used for the Difference Rewards runs.</div>
       </div>
       <div class="svgwrap">
         <svg class="diagram" viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
