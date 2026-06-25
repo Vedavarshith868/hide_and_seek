@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Emergent Multi-Agent Hide-and-Seek</title>
+<meta name="description" content="Reproducing OpenAI's emergent hide-and-seek behaviors in 2D MuJoCo on a single GPU, with a custom Difference Rewards credit-assignment algorithm." />
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f6f7f9;
+    --ink: #15171a;
+    --muted: #5c636e;
+    --faint: #8a909b;
+    --line: #e6e8ec;
+    --hider: #2d7ff9;
+    --seeker: #ef4444;
+    --accent: #111827;
+    --maxw: 980px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px;
+  }
+  .nav-inner .brand { font-weight: 600; letter-spacing: -0.01em; }
+  .nav-links { display: flex; gap: 22px; }
+  .nav-links a { color: var(--muted); text-decoration: none; transition: color .15s; }
+  .nav-links a:hover { color: var(--ink); }
+  @media (max-width: 680px) { .nav-links { display: none; } }
+
+  /* ---------- layout ---------- */
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  section { padding: 72px 0; border-bottom: 1px solid var(--line); }
+  section.alt { background: var(--bg-alt); }
+
+  h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.08; letter-spacing: -0.025em; margin: 0 0 22px; font-weight: 700; }
+  h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -0.02em; margin: 0 0 14px; font-weight: 700; }
+  h3 { font-size: 20px; letter-spacing: -0.01em; margin: 0 0 8px; font-weight: 650; }
+  p  { color: var(--muted); margin: 0 0 16px; font-size: 17px; }
+  .lead { font-size: 20px; color: var(--muted); max-width: 720px; }
+
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin-bottom: 14px; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 96px 0 80px; }
+  .hero .legend { display: flex; gap: 22px; margin: 26px 0 0; font-size: 15px; color: var(--muted); }
+  .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+  .dot.h { background: var(--hider); }
+  .dot.s { background: var(--seeker); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 48px; }
+  .stat { border: 1px solid var(--line); border-radius: 14px; padding: 20px 18px; background: var(--bg); }
+  .stat .n { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat .l { font-size: 13px; color: var(--faint); margin-top: 4px; }
+  @media (max-width: 760px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  .cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 36px; background: var(--accent); color: #fff; text-decoration: none; padding: 12px 22px; border-radius: 999px; font-size: 15px; font-weight: 550; transition: transform .12s, opacity .15s; }
+  .cta:hover { transform: translateY(-1px); opacity: .9; }
+  .cta.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); margin-left: 10px; }
+
+  /* ---------- phase / video blocks ---------- */
+  .episodes { font-size: 14px; font-weight: 600; color: var(--seeker); letter-spacing: 0.02em; margin-bottom: 6px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  @media (max-width: 760px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  figure { margin: 0; }
+  figure img {
+    width: 100%; border-radius: 14px; display: block;
+    border: 1px solid var(--line);
+    background: #0e0f12;
+    aspect-ratio: 1 / 1; object-fit: cover;
+  }
+  figcaption { font-size: 14.5px; color: var(--muted); margin-top: 12px; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .phase { margin-top: 56px; }
+  .phase:first-of-type { margin-top: 40px; }
+
+  .callout {
+    border-left: 3px solid var(--hider); background: var(--bg-alt);
+    padding: 16px 20px; border-radius: 0 12px 12px 0; margin-top: 28px;
+    font-size: 15px; color: var(--muted);
+  }
+  .callout b { color: var(--ink); }
+
+  /* ---------- architecture svg ---------- */
+  .diagram { width: 100%; height: auto; margin: 8px 0 0; }
+  .svgwrap { border: 1px solid var(--line); border-radius: 16px; padding: 26px; background: var(--bg); overflow-x: auto; }
+
+  /* ---------- comparison table ---------- */
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 15px; }
+  th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; }
+  td:first-child { font-weight: 600; color: var(--ink); width: 26%; }
+  .mine { color: var(--hider); font-weight: 600; }
+  .tag { display: inline-block; font-size: 12px; color: var(--faint); font-weight: 500; }
+
+  /* ---------- two-col explainer ---------- */
+  .explainer { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+  .explainer.rev { direction: rtl; }
+  .explainer.rev > * { direction: ltr; }
+  @media (max-width: 820px) { .explainer, .explainer.rev { grid-template-columns: 1fr; direction: ltr; } }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--bg-alt); border: 1px solid var(--line); border-radius: 10px; padding: 4px 9px; font-size: 14px; color: var(--ink); }
+  .formula { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 18px; background: var(--bg-alt); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 18px 0; color: var(--ink); }
+
+  ul.clean { color: var(--muted); font-size: 16px; padding-left: 20px; }
+  ul.clean li { margin-bottom: 8px; }
+
+  footer { padding: 56px 0 80px; }
+  footer p { font-size: 14px; color: var(--faint); }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <span class="brand">Hide-and-Seek · Multi-Agent RL</span>
+    <div class="nav-links">
+      <a href="#behaviors">Behaviors</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#mappo">MAPPO+GAE</a>
+      <a href="#dr">Difference Rewards</a>
+      <a href="#comparison">vs. OpenAI</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Competitive Multi-Agent Reinforcement Learning</div>
+    <h1>Emergent tool use in<br/>2D hide-and-seek</h1>
+    <p class="lead">
+      A from-scratch reproduction of OpenAI's <a href="https://openai.com/index/emergent-tool-use/">emergent hide-and-seek behaviors</a>
+      (Baker et al., ICLR 2020) in a 2D MuJoCo world — trained on a <b>single GPU</b> through pure zero-sum self-play,
+      with no shaped rewards and no demonstrations. Includes a custom <b>Difference Rewards</b> credit-assignment algorithm.
+    </p>
+    <div class="legend">
+      <span><span class="dot h"></span>Hiders</span>
+      <span><span class="dot s"></span>Seekers</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">~160K</div><div class="l">episodes to chase/flee (vs OpenAI 2.69M)</div></div>
+      <div class="stat"><div class="n">1 GPU</div><div class="l">A10G, 32 parallel envs</div></div>
+      <div class="stat"><div class="n">108</div><div class="l">factored joint actions</div></div>
+      <div class="stat"><div class="n">D&#8202;<sub>i</sub> = G − G<sub>−i</sub></div><div class="l">exact per-agent credit</div></div>
+    </div>
+
+    <a class="cta" href="#behaviors">See the behaviors ↓</a>
+    <a class="cta ghost" href="https://github.com/Vedavarshith868/hide_and_seek">View code on GitHub</a>
+  </div>
+</header>
+
+<!-- ============ TESTING PHASE ============ -->
+<section id="behaviors">
+  <div class="wrap">
+    <div class="eyebrow">Phase −1 · Plain Arena</div>
+    <h2>Validating the basics first</h2>
+    <p class="lead">Before committing to the full environment, I ran experiments in an empty arena — no rooms, no boxes — to confirm that chase/flee dynamics and line-of-sight awareness would emerge at all.</p>
+
+    <div class="grid2" style="margin-top:36px;">
+      <figure>
+        <img src="assets/gifs/00_testing_cornering.gif" alt="First cornering signs" loading="lazy" />
+        <figcaption><b>First cornering signs.</b> Hiders begin reading corner geometry — the first sign that wall-based evasion is viable.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/gifs/01_testing_corner_confusion.gif" alt="Corner confusion" loading="lazy" />
+        <figcaption><b>Corner confusion.</b> Hiders reach the wall but can't yet exploit geometry to break line-of-sight, so they get caught.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/gifs/02_testing_fov_evasion.gif" alt="FOV evasion" loading="lazy" />
+        <figcaption><b>FOV evasion.</b> Watch the bottom pair — the hider rolls <i>against</i> the seeker, slipping outside its 135° field of view without fleeing far.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/gifs/03_testing_risk_reward.gif" alt="Risk vs reward" loading="lazy" />
+        <figcaption><b>Risk vs. reward.</b> Hiders break the seekers' line of sight; seekers retreat to corners to reclaim full-arena vision — trading mobility for information.</figcaption>
+      </figure>
+    </div>
+
+    <div class="callout">Basic dynamics confirmed. Switched to the full environment — procedural rooms, movable/lockable boxes — and the <b>MAPPO + GAE</b> training setup.</div>
+  </div>
+</section>
+
+<!-- ============ MAPPO PHASES ============ -->
+<section class="alt">
+  <div class="wrap">
+    <div class="eyebrow">MAPPO + GAE · Full Environment</div>
+    <h2>Behaviors emerge through self-play</h2>
+    <p class="lead">A single shared actor (Transformer + LSTM) drives all agents, a centralized global critic estimates advantage, and the only reward is zero-sum: <span class="mono">+1 / EPISODE_LEN</span> per step for the winning team.</p>
+
+    <!-- Phase 0 -->
+    <div class="phase">
+      <div class="episodes">~120K–192K episodes (ckpt 4k–6k)</div>
+      <h3>Phase 0 — Chase &amp; Flee</h3>
+      <p>Seeking and fleeing emerge by checkpoint 4k. By 5k–6k, agents develop genuine cornering strategy — seekers cut off escape angles, hiders use walls to break line-of-sight.</p>
+      <div class="grid3" style="margin-top:24px;">
+        <figure><img src="assets/gifs/04_chase_4k.gif" alt="Chase/flee at 4k" loading="lazy" /><figcaption><b>4k —</b> clean pursuit and evasion.</figcaption></figure>
+        <figure><img src="assets/gifs/05_chase_cornering_5k.gif" alt="Cornering at 5k" loading="lazy" /><figcaption><b>5k–6k —</b> seekers master corner cuts.</figcaption></figure>
+        <figure><img src="assets/gifs/06_chase_coordination_6k.gif" alt="Coordination at 6k" loading="lazy" /><figcaption><b>6k —</b> seekers split to cut off escape paths.</figcaption></figure>
+      </div>
+      <div class="callout"><b>OpenAI baseline:</b> chasing emerges at 0–2.69M episodes. Here: ~160K on a single GPU. Phases 0–1 are floor-bound planar navigation in both 2D and 3D, which makes this episode-count comparison meaningful.</div>
+    </div>
+
+    <!-- Phase 0->1 -->
+    <div class="phase">
+      <div class="episodes">~256K–320K episodes (ckpt 8k–10k)</div>
+      <h3>Phase 0 → 1 — First Box Interaction</h3>
+      <p>Room entry was still inconsistent, but hiders began picking up boxes and dragging them to walls — extending their corner-hiding instinct to movable objects.</p>
+      <div class="grid2" style="margin-top:24px;">
+        <figure><img src="assets/gifs/07_box_early_8k.gif" alt="Early box usage" loading="lazy" /><figcaption><b>8k–10k —</b> hiders try to hide <i>behind</i> boxes by dragging them to walls.</figcaption></figure>
+        <div></div>
+      </div>
+    </div>
+
+    <!-- Phase 1 seekers -->
+    <div class="phase">
+      <div class="episodes">~384K–480K episodes (ckpt 12k–15k · quadrant spawn)</div>
+      <h3>Phase 1 — Seekers Enter Rooms</h3>
+      <p>Switched to quadrant spawn — hiders and boxes inside the first room, seekers outside — creating a natural pressure gradient. Seekers learn to navigate the doorway and search inside.</p>
+      <div class="grid3" style="margin-top:24px;">
+        <figure><img src="assets/gifs/08_quad_room_12k.gif" alt="Seeker enters room 12k" loading="lazy" /><figcaption><b>12k —</b> seeker navigates through the doorway.</figcaption></figure>
+        <figure><img src="assets/gifs/09_quad_room_13k.gif" alt="Seeker enters room 13k" loading="lazy" /><figcaption><b>13k —</b> faster, more efficient room scanning.</figcaption></figure>
+        <figure><img src="assets/gifs/10_quad_room_15k.gif" alt="Seeker enters room 15k" loading="lazy" /><figcaption><b>15k —</b> consistent entry; doorway treated as the key point.</figcaption></figure>
+      </div>
+    </div>
+
+    <!-- Phase 1 hiders -->
+    <div class="phase">
+      <div class="episodes">~640K–800K episodes (ckpt 20k–25k)</div>
+      <h3>Phase 1 — Hiders Use Rooms + Boxes</h3>
+      <p>Hiders respond to room invasions with box-assisted concealment. Single-box hiding emerges by 20k; by 22k–25k both hiders coordinate to use separate boxes.</p>
+      <div class="grid2" style="margin-top:24px;">
+        <figure><img src="assets/gifs/11_doorway_box_20k.gif" alt="Box hiding 20k" loading="lazy" /><figcaption><b>20k —</b> hider drags a box to improve its concealment inside the room.</figcaption></figure>
+        <figure><img src="assets/gifs/12_doorway_2boxes_22k.gif" alt="Two-box coordination" loading="lazy" /><figcaption><b>22k–25k —</b> both hiders position separate boxes to maximize wall cover.</figcaption></figure>
+      </div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div class="phase">
+      <div class="episodes">~864K–960K episodes (ckpt 27k–30k)</div>
+      <h3>Phase 2 — Doorway Blocking + Locking</h3>
+      <p>The most sophisticated behavior: hiders learn that approaching the doorway risks being seen. They avoid it, place a box <i>exactly</i> at the entrance, and <b>lock it</b> so seekers can't push it aside — effectively barricading the door.</p>
+      <div class="grid2" style="margin-top:24px;">
+        <figure><img src="assets/gifs/11b_doorway_box_20k_v2.gif" alt="Early doorway blocking" loading="lazy" /><figcaption><b>Early blocking —</b> hider starts placing the box at the entrance, recognizing the doorway as the threat point.</figcaption></figure>
+        <figure><img src="assets/gifs/13_doorway_lock_28k.gif" alt="Doorway lock 28k" loading="lazy" /><figcaption><b>27k–30k —</b> hider stays in the room, fits the box to the exact doorway width, and locks it in place.</figcaption></figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ARCHITECTURE ============ -->
+<section id="architecture">
+  <div class="wrap">
+    <div class="eyebrow">Model</div>
+    <h2>Entity-centric policy architecture</h2>
+    <p class="lead">Each agent sees an unordered list of entities (teammates, opponents, boxes, walls) plus a 72-ray LiDAR sweep. A shared Transformer attends over entities; an LSTM carries memory; four independent heads emit a factored action.</p>
+
+    <div class="svgwrap" style="margin-top:32px;">
+      <svg class="diagram" viewBox="0 0 920 540" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
+        <defs>
+          <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 Z" fill="#8a909b"/>
+          </marker>
+          <style>
+            .box { fill:#fff; stroke:#d7dae0; stroke-width:1.5; rx:10; }
+            .lbl { font-size:13px; fill:#15171a; }
+            .sub { font-size:11px; fill:#8a909b; }
+            .flow { stroke:#8a909b; stroke-width:1.6; fill:none; marker-end:url(#arr); }
+            .acc { fill:#eef4ff; stroke:#2d7ff9; }
+            .acc2 { fill:#fff4f4; stroke:#ef4444; }
+          </style>
+        </defs>
+
+        <!-- Observation -->
+        <rect class="box" x="300" y="20" width="320" height="58" rx="10"/>
+        <text class="lbl" x="460" y="44" text-anchor="middle" font-weight="600">Observation</text>
+        <text class="sub" x="460" y="62" text-anchor="middle">12 entities × 18-dim + 72-ray LiDAR + 2 time scalars</text>
+
+        <line class="flow" x1="460" y1="78" x2="460" y2="106"/>
+
+        <!-- Entity embedding -->
+        <rect class="box" x="300" y="108" width="320" height="50" rx="10"/>
+        <text class="lbl" x="460" y="130" text-anchor="middle">Entity Embedding MLP</text>
+        <text class="sub" x="460" y="147" text-anchor="middle">shared weights, applied per entity</text>
+
+        <line class="flow" x1="460" y1="158" x2="460" y2="186"/>
+
+        <!-- Attention -->
+        <rect class="box acc" x="300" y="188" width="320" height="50" rx="10"/>
+        <text class="lbl" x="460" y="210" text-anchor="middle">Masked Residual Self-Attention</text>
+        <text class="sub" x="460" y="227" text-anchor="middle">2 layers · 4 heads · 128-dim</text>
+
+        <line class="flow" x1="460" y1="238" x2="460" y2="266"/>
+
+        <!-- pool -->
+        <rect class="box" x="335" y="268" width="250" height="42" rx="10"/>
+        <text class="lbl" x="460" y="294" text-anchor="middle">Mean-pool → 128-dim context</text>
+
+        <!-- split lines -->
+        <line class="flow" x1="460" y1="310" x2="220" y2="356"/>
+        <line class="flow" x1="460" y1="310" x2="460" y2="356"/>
+        <line class="flow" x1="460" y1="310" x2="720" y2="356"/>
+
+        <!-- LSTM -->
+        <rect class="box" x="370" y="358" width="180" height="46" rx="10"/>
+        <text class="lbl" x="460" y="386" text-anchor="middle">LSTM · 256 hidden</text>
+
+        <!-- RND -->
+        <rect class="box acc2" x="630" y="358" width="200" height="46" rx="10"/>
+        <text class="lbl" x="730" y="380" text-anchor="middle">Dual-channel RND</text>
+        <text class="sub" x="730" y="396" text-anchor="middle">spatial + interaction</text>
+
+        <!-- Critic -->
+        <rect class="box" x="90" y="358" width="200" height="46" rx="10"/>
+        <text class="lbl" x="190" y="380" text-anchor="middle">Centralized Critic</text>
+        <text class="sub" x="190" y="396" text-anchor="middle">global state → H / S / int values</text>
+
+        <line class="flow" x1="460" y1="404" x2="460" y2="432"/>
+
+        <!-- Heads -->
+        <rect class="box" x="250" y="434" width="420" height="86" rx="10"/>
+        <text class="lbl" x="460" y="456" text-anchor="middle" font-weight="600">Four independent actor heads</text>
+        <text class="sub" x="312" y="480" text-anchor="middle">Move · 9</text>
+        <text class="sub" x="404" y="480" text-anchor="middle">Rotate · 3</text>
+        <text class="sub" x="500" y="480" text-anchor="middle">Grab · 2</text>
+        <text class="sub" x="592" y="480" text-anchor="middle">Lock · 2</text>
+        <text class="lbl" x="460" y="506" text-anchor="middle">= 108 factored joint actions</text>
+      </svg>
+    </div>
+
+    <p style="margin-top:28px;"><b style="color:var(--ink)">Environment.</b> MuJoCo 2D · 10 m × 10 m arena · procedural BSP rooms · 72-ray full-circle LiDAR · 135° FOV occlusion · grab &amp; lock mechanics (4–6 boxes/episode, ≥2 elongated) · 40% preparation phase (seekers frozen) + 60% competition.</p>
+  </div>
+</section>
+
+<!-- ============ MAPPO explainer ============ -->
+<section id="mappo" class="alt">
+  <div class="wrap">
+    <div class="eyebrow">Credit Assignment · Experiment 1</div>
+    <h2>MAPPO + GAE — and how it differs from OpenAI</h2>
+    <div class="explainer" style="margin-top:32px;">
+      <div>
+        <p>Both this project and OpenAI use <b>centralized training with decentralized execution</b> — an omniscient critic during training, independent policies at run time. The difference is in <b>how credit is split among teammates.</b></p>
+        <p>OpenAI's PPO uses a single <b>shared team value baseline</b>: every agent on a team receives the <b>identical</b> advantage. There is no per-agent attribution — a teammate that did nothing gets the same signal as the one that made the play.</p>
+        <p>MAPPO + GAE keeps a centralized global critic but computes per-team GAE, giving a cleaner, lower-variance team signal that was strong enough to produce consistent chase/flee by ~160K episodes.</p>
+      </div>
+      <div class="svgwrap">
+        <svg class="diagram" viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
+          <defs>
+            <marker id="arr2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#8a909b"/></marker>
+          </defs>
+          <rect x="120" y="16" width="180" height="44" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="210" y="36" text-anchor="middle" font-size="13" fill="#15171a">Team reward G</text>
+          <text x="210" y="52" text-anchor="middle" font-size="11" fill="#8a909b">zero-sum, team-level</text>
+
+          <line x1="210" y1="60" x2="210" y2="92" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr2)"/>
+
+          <rect x="110" y="94" width="200" height="46" rx="10" fill="#eef4ff" stroke="#2d7ff9" stroke-width="1.5"/>
+          <text x="210" y="114" text-anchor="middle" font-size="13" fill="#15171a">Centralized critic → GAE</text>
+          <text x="210" y="130" text-anchor="middle" font-size="11" fill="#8a909b">one shared advantage A</text>
+
+          <line x1="210" y1="140" x2="120" y2="184" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr2)"/>
+          <line x1="210" y1="140" x2="300" y2="184" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr2)"/>
+
+          <rect x="44" y="186" width="150" height="60" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="119" y="210" text-anchor="middle" font-size="13" fill="#15171a">Agent 1</text>
+          <text x="119" y="230" text-anchor="middle" font-size="13" fill="#2d7ff9" font-weight="600">A</text>
+
+          <rect x="226" y="186" width="150" height="60" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="301" y="210" text-anchor="middle" font-size="13" fill="#15171a">Agent 2</text>
+          <text x="301" y="230" text-anchor="middle" font-size="13" fill="#2d7ff9" font-weight="600">A</text>
+
+          <text x="210" y="288" text-anchor="middle" font-size="12" fill="#8a909b">Both agents receive the same advantage —</text>
+          <text x="210" y="306" text-anchor="middle" font-size="12" fill="#8a909b">no individual credit.</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMA ============ -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Detour</div>
+    <h2>COMA collapsed — and pointed to the fix</h2>
+    <p class="lead" style="max-width:760px;">I switched to <b>COMA</b> (counterfactual multi-agent) credit assignment to test whether per-agent counterfactual gradients would sharpen Phase 2. Both policies collapsed within ~40 iterations: the centralized Q-critic's counterfactual differences were dominated by noise at this reward horizon (<span class="mono">SNR ≈ 0.15</span>). Per-minibatch normalization amplified that noise to unit-scale gradients, entropy fell to 0.05 — a degenerate fixed-action policy.</p>
+    <div class="callout"><b>The insight:</b> the problem wasn't per-agent credit itself — it was <i>approximating</i> the counterfactual with a noisy learned critic. So I computed it exactly instead.</div>
+  </div>
+</section>
+
+<!-- ============ DR explainer ============ -->
+<section id="dr" class="alt">
+  <div class="wrap">
+    <div class="eyebrow">Credit Assignment · Custom Algorithm</div>
+    <h2>Difference Rewards — exact per-agent credit</h2>
+    <div class="explainer rev" style="margin-top:32px;">
+      <div>
+        <p>Instead of learning the counterfactual from a noisy Q-critic, I compute it <b>exactly</b> from the reward's line-of-sight structure. The raycasting already determines who can see whom, so removing agent <i>i</i> gives the true counterfactual at zero approximation cost.</p>
+        <div class="formula">D<sub>i</sub> = G − G<sub>−i</sub></div>
+        <p>Each agent's signal is the team reward minus what the team would have earned without it. The final advantage blends the team-level GAE with this per-agent marginal credit:</p>
+        <div class="formula">A<sub>i</sub> = norm(GAE<sub>team</sub>) + κ · norm(Σ γ D<sub>i</sub>)</div>
+        <p><b>Result:</b> chase/flee re-emerged by checkpoint 5k–6k — matching MAPPO+GAE and confirming COMA's failure was an approximation-noise problem, not a fundamental one.</p>
+      </div>
+      <div class="svgwrap">
+        <svg class="diagram" viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, Consolas, monospace">
+          <defs>
+            <marker id="arr3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#8a909b"/></marker>
+          </defs>
+          <rect x="40" y="16" width="160" height="46" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="120" y="36" text-anchor="middle" font-size="13" fill="#15171a">Full team: G</text>
+          <text x="120" y="52" text-anchor="middle" font-size="11" fill="#8a909b">LOS raycast</text>
+
+          <rect x="220" y="16" width="160" height="46" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="300" y="36" text-anchor="middle" font-size="13" fill="#15171a">Remove agent i: G<tspan font-size="10" dy="3">−i</tspan></text>
+          <text x="300" y="52" text-anchor="middle" font-size="11" fill="#8a909b">re-evaluate LOS</text>
+
+          <line x1="120" y1="62" x2="180" y2="104" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr3)"/>
+          <line x1="300" y1="62" x2="240" y2="104" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr3)"/>
+
+          <rect x="120" y="106" width="180" height="46" rx="10" fill="#eef4ff" stroke="#2d7ff9" stroke-width="1.5"/>
+          <text x="210" y="128" text-anchor="middle" font-size="14" fill="#15171a" font-weight="600">D&#8202;<tspan font-size="11" dy="2">i</tspan><tspan dy="-2"> = G − G</tspan><tspan font-size="10" dy="3">−i</tspan></text>
+          <text x="210" y="144" text-anchor="middle" font-size="11" fill="#8a909b">exact, no learned critic</text>
+
+          <line x1="160" y1="152" x2="120" y2="196" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr3)"/>
+          <line x1="260" y1="152" x2="300" y2="196" stroke="#8a909b" stroke-width="1.6" marker-end="url(#arr3)"/>
+
+          <rect x="44" y="198" width="150" height="60" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="119" y="222" text-anchor="middle" font-size="13" fill="#15171a">Agent 1</text>
+          <text x="119" y="242" text-anchor="middle" font-size="13" fill="#2d7ff9" font-weight="600">D&#8202;<tspan font-size="10" dy="2">1</tspan></text>
+
+          <rect x="226" y="198" width="150" height="60" rx="10" fill="#fff" stroke="#d7dae0" stroke-width="1.5"/>
+          <text x="301" y="222" text-anchor="middle" font-size="13" fill="#15171a">Agent 2</text>
+          <text x="301" y="242" text-anchor="middle" font-size="13" fill="#ef4444" font-weight="600">D&#8202;<tspan font-size="10" dy="2">2</tspan></text>
+
+          <text x="210" y="290" text-anchor="middle" font-size="12" fill="#8a909b">Each agent receives its own distinct credit.</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:44px;">
+      <figure><img src="assets/gifs/14_dr_chase_4k.gif" alt="DR chase 4.5k" loading="lazy" /><figcaption><b>4.5k under DR —</b> chase/flee re-emerges. Note hiders continuously rotating, actively scanning with their 135° FOV rather than fleeing blind.</figcaption></figure>
+      <figure><img src="assets/gifs/15_dr_chase.gif" alt="DR chase" loading="lazy" /><figcaption><b>DR pursuit —</b> seekers hold tight pursuit; behavior quality matches MAPPO+GAE at the same checkpoint range.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARISON ============ -->
+<section id="comparison">
+  <div class="wrap">
+    <div class="eyebrow">Results</div>
+    <h2>Comparison with OpenAI</h2>
+    <table>
+      <thead>
+        <tr><th></th><th>This project</th><th>OpenAI (Baker et al.)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Environment</td><td class="mine">MuJoCo 2D (top-down)</td><td>MuJoCo 3D</td></tr>
+        <tr><td>Agents</td><td>2 hiders + 2 seekers</td><td>1–3 hiders + 1–3 seekers</td></tr>
+        <tr><td>Algorithm</td><td class="mine">MAPPO + Difference Rewards<br/><span class="tag">per-agent credit</span></td><td>PPO + shared team value baseline<br/><span class="tag">no per-agent credit</span></td></tr>
+        <tr><td>Compute</td><td class="mine">Single GPU (A10G), 32 envs</td><td>Multi-GPU cluster + 4000 CPUs</td></tr>
+        <tr><td>Chase / flee</td><td class="mine">~160K episodes <span class="tag">consistent</span></td><td>0–2.69M episodes</td></tr>
+        <tr><td>Room hiding + object use</td><td class="mine">~640K–960K episodes <span class="tag">emerging — ~85–90% of episodes, not yet fully refined</span></td><td>2.69–8.62M episodes</td></tr>
+        <tr><td>Doorway blocking + lock</td><td class="mine">~864K–960K episodes <span class="tag">emerging — ~85–90% of episodes, not yet fully refined</span></td><td>2.69–8.62M episodes</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:20px; font-size:14.5px;">Phases 0–1 are dominated by planar navigation and horizontal line-of-sight — OpenAI's agents are also floor-bound there, making the episode-count comparison fair. The efficiency gain on later phases is also partly attributable to the simpler 2D action and physics space.</p>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <h3 style="margin-bottom:14px;">References</h3>
+    <ul class="clean">
+      <li>Baker et al., <a href="https://arxiv.org/abs/1909.07528">Emergent Tool Use From Multi-Agent Autocurricula</a>, ICLR 2020</li>
+      <li>Foerster et al., <a href="https://arxiv.org/abs/1705.08926">Counterfactual Multi-Agent Policy Gradients</a>, AAAI 2018</li>
+      <li>Yu et al., <a href="https://arxiv.org/abs/2103.01955">The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games</a>, NeurIPS 2022</li>
+    </ul>
+    <p style="margin-top:28px;">Built by Vedavarshith · <a href="https://github.com/Vedavarshith868/hide_and_seek">github.com/Vedavarshith868/hide_and_seek</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
