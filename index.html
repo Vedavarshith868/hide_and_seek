@@ -174,38 +174,8 @@
   </div>
 </header>
 
-<!-- ============ TESTING PHASE ============ -->
-<section id="behaviors">
-  <div class="wrap">
-    <div class="eyebrow">Phase −1 · Plain Arena</div>
-    <h2>Validating the basics first</h2>
-    <p class="lead">Before committing to the full environment, I ran experiments in an empty arena — no rooms, no boxes — to confirm that chase/flee dynamics and line-of-sight awareness would emerge at all.</p>
-
-    <div class="grid2" style="margin-top:36px;">
-      <figure>
-        <img src="assets/gifs/00_testing_cornering.gif" alt="First cornering signs" loading="lazy" />
-        <figcaption><b>First cornering signs.</b> Hiders begin reading corner geometry — the first sign that wall-based evasion is viable.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/gifs/01_testing_corner_confusion.gif" alt="Corner confusion" loading="lazy" />
-        <figcaption><b>Corner confusion.</b> Hiders reach the wall but can't yet exploit geometry to break line-of-sight, so they get caught.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/gifs/02_testing_fov_evasion.gif" alt="FOV evasion" loading="lazy" />
-        <figcaption><b>FOV evasion.</b> Watch the bottom pair — the hider rolls <i>against</i> the seeker, slipping outside its 135° field of view without fleeing far.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/gifs/03_testing_risk_reward.gif" alt="Risk vs reward" loading="lazy" />
-        <figcaption><b>Risk vs. reward.</b> Hiders break the seekers' line of sight; seekers retreat to corners to reclaim full-arena vision — trading mobility for information.</figcaption>
-      </figure>
-    </div>
-
-    <div class="callout">Basic dynamics confirmed. Switched to the full environment — procedural rooms, movable/lockable boxes — and the <b>MAPPO + GAE</b> training setup.</div>
-  </div>
-</section>
-
 <!-- ============ MAPPO PHASES ============ -->
-<section class="alt">
+<section id="behaviors" class="alt">
   <div class="wrap">
     <div class="eyebrow">MAPPO + GAE · Full Environment</div>
     <h2>Behaviors emerge through self-play</h2>
