@@ -69,9 +69,7 @@ def evaluate(checkpoint_path: str, output_video: str = "eval_output.mp4",
         actions = af.cpu().numpy()
         obs_raw, _, _, done, _ = env.step(actions)
         
-        if done:
-            break
-            
+        if done: break
     # Capture the final frame of the episode
     frames.append(env.render_frame())
 
