@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 """
 Shared constants for the Hide-and-Seek 2D environment and training pipeline.
 """
@@ -21,7 +21,6 @@ SUBSTEP_DT        = DT / SUBSTEPS
 EPISODE_LEN       = 240
 PREP_STEPS        = 96
 REWARD_SCALE      = 1.0 / EPISODE_LEN
-
 # ---------------------------------------------------------------------------
 # Agents
 # ---------------------------------------------------------------------------
@@ -88,7 +87,7 @@ LOCK_ACTIONS   = 2
 ADV_MODE   = 'gae'
 
 # ---------------------------------------------------------------------------
-# Neural-network / training aliases  (used by models & training modules)
+# training aliases  (used by models & training modules)
 # ---------------------------------------------------------------------------
 FEAT_DIM   = ENTITY_FEAT_DIM            # 18
 LIDAR_DIM  = LIDAR_RAYS + OBS_EXTRA_DIM # 32 (rays + time features)
@@ -111,9 +110,7 @@ LIDAR_VECS_FLAT = np.ascontiguousarray(LIDAR_VECS.reshape(-1))
 # ---------------------------------------------------------------------------
 # Pre-computed movement directions
 # ---------------------------------------------------------------------------
-_MOVE_DIRS = []
-for _i in range(8):
-    _a = _i * (2 * math.pi / 8)
-    _MOVE_DIRS.append((math.cos(_a), math.sin(_a)))
-_MOVE_DIRS.append((0.0, 0.0))
-MOVE_DIRS = np.array(_MOVE_DIRS, dtype=np.float32)
+MOVE_DIRS = np.zeros((9, 2), dtype=np.float32)
+angles = np.arange(8) * (np.pi / 4)
+MOVE_DIRS[:8, 0] = np.cos(angles)
+MOVE_DIRS[:8, 1] = np.sin(angles)
